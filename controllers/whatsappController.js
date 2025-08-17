@@ -8,7 +8,7 @@ class WhatsAppController {
   async handleIncomingMessage(req, res) {
     try {
       console.log('🎯 ===== PROCESSING INCOMING MESSAGE =====');
-      console.log('🌐 Webhook URL: https://honeynwild.com/Airlineapp/webhook');
+      console.log('🌐 Webhook URL: https://airlineapp-backend.onrender.com');
       const body = req.body;
       console.log('🎯 Raw body received:', JSON.stringify(body, null, 2));
       

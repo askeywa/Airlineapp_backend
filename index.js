@@ -46,7 +46,7 @@ if (NODE_ENV === 'production') {
   });
   
   app.use('/webhook', limiter);
-  app.use('/Airlineapp/webhook', limiter); // Apply to both paths
+  //app.use('/Airlineapp/webhook', limiter); // Apply to both paths
 }
 
 // Trust proxy (important for A2 Hosting behind proxy)
@@ -55,8 +55,8 @@ app.set('trust proxy', 1);
 // CORS configuration for your domain
 const corsOptions = {
   origin: [
-    'https://honeynwild.com',
-    'https://www.honeynwild.com',
+    'https://airlineapp-backend.onrender.com/',
+   // 'https://www.honeynwild.com',
     NODE_ENV === 'development' ? 'http://localhost:3000' : null
   ].filter(Boolean),
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -201,16 +201,20 @@ airlineRouter.get('/', async (req, res) => {
       flights: !!flightRoutes
     },
     availableEndpoints: [
+
+      '/webhook (GET|POST)',
+      /*
       '/Airlineapp/',
       '/Airlineapp/webhook (GET|POST)',
       '/Airlineapp/flights/search',
       '/Airlineapp/api/status',
-      '/Airlineapp/test'
+      '/Airlineapp/test'*/
     ]
   };
 
   res.json(healthData);
 });
+/*
 // 1. First, create a simple diagnostic endpoint - Add this to your index.js
 
 // Add this route BEFORE your other routes in index.js
@@ -280,9 +284,9 @@ app.get('/Airlineapp/webhook-direct', (req, res) => {
     });
   }
 });
-
+*/
 // 3. Add a comprehensive health check
-app.get('/Airlineapp/health-full', async (req, res) => {
+app.get('/health-full', async (req, res) => {
   const health = {
     timestamp: new Date().toISOString(),
     status: 'running',
@@ -308,11 +312,14 @@ app.get('/Airlineapp/health-full', async (req, res) => {
       flights_loaded: !!flightRoutes
     },
     testEndpoints: [
+      '/webhook',
+
+      /*
       '/Airlineapp/health-full',
       '/Airlineapp/webhook-test',
       '/Airlineapp/webhook-direct',
       '/Airlineapp/webhook',
-      '/Airlineapp/flights/search'
+      '/Airlineapp/flights/search' */
     ]
   };
 
@@ -327,7 +334,7 @@ app.get('/Airlineapp/health-full', async (req, res) => {
 
   res.json(health);
 });
-
+/*
 // 4. Add environment variable debug endpoint
 app.get('/Airlineapp/env-debug', (req, res) => {
   res.json({
@@ -375,7 +382,7 @@ airlineRouter.get('/api/status', (req, res) => {
     },
     timestamp: new Date().toISOString()
   });
-});
+}); */
 
 // Mount the /Airlineapp router
 app.use('/Airlineapp', airlineRouter);
@@ -400,6 +407,9 @@ app.get('/', async (req, res) => {
       flights: !!flightRoutes
     },
     availableEndpoints: [
+
+      '/webhook (GET|POST)',
+      /*
       '/ (root)',
       '/webhook (GET|POST)',
       '/flights/search',
@@ -408,7 +418,7 @@ app.get('/', async (req, res) => {
       '/Airlineapp/webhook (GET|POST)',
       '/Airlineapp/flights/search',
       '/Airlineapp/api/status',
-      '/Airlineapp/test'
+      '/Airlineapp/test' */
     ]
   };
 
@@ -425,7 +435,7 @@ app.get('/test', (req, res) => {
     path: req.originalUrl
   });
 });
-
+/*
 // API status endpoint (root)
 app.get('/api/status', (req, res) => {
   res.json({
@@ -446,7 +456,7 @@ app.get('/api/status', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
-
+*/
 // Favicon route to prevent 404s
 app.get('/favicon.ico', (req, res) => {
   res.status(204).send();
@@ -491,16 +501,12 @@ app.use('*', (req, res) => {
     method: req.method,
     message: 'The requested endpoint does not exist',
     availableRoutes: [
+
+      
       'GET /',
-      'GET /test',
-      'GET /api/status',
-      'GET /flights/search',
+
       'GET|POST /webhook',
-      'GET /Airlineapp/',
-      'GET /Airlineapp/test',
-      'GET /Airlineapp/api/status',
-      'GET /Airlineapp/flights/search',
-      'GET|POST /Airlineapp/webhook'
+
     ],
     timestamp: new Date().toISOString()
   });
