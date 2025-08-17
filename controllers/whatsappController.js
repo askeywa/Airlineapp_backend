@@ -76,8 +76,8 @@ class WhatsAppController {
               hasText: !!message.text
             });
             
-            // Process message asynchronously to avoid blocking
-            WhatsAppController.processMessage(message, phoneNumberId, changeValue)
+            // Process message asynchronously to avoid blocking - use instance method
+            this.processMessage(message, phoneNumberId, changeValue)
               .catch(error => {
                 console.error('❌ Error in async message processing:', error.message);
               });
@@ -121,8 +121,8 @@ class WhatsAppController {
     return await this.handleIncomingMessage(mockReq, mockRes);
   }
 
-  // Process individual message
-  static async processMessage(message, phoneNumberId, changeValue) {
+  // Process individual message - Changed from static to instance method
+  async processMessage(message, phoneNumberId, changeValue) {
     try {
       console.log('🔄 ===== PROCESSING INDIVIDUAL MESSAGE =====');
       
@@ -217,13 +217,13 @@ class WhatsAppController {
       // Check if message contains flight search keywords or is a help request
       if (messageText.includes('help') || messageText.includes('menu') || messageText.includes('start') || messageText.includes('hi') || messageText.includes('hello')) {
         console.log('❓ Help/greeting request detected');
-        await WhatsAppController.sendHelpMessage(userPhone, userName);
-      } else if (WhatsAppController.isFlightQuery(messageText)) {
+        await this.sendHelpMessage(userPhone, userName);
+      } else if (this.isFlightQuery(messageText)) {
         console.log('✈️ Detected flight query, processing...');
-        await WhatsAppController.handleFlightSearch(messageText, userPhone, userName);
+        await this.handleFlightSearch(messageText, userPhone, userName);
       } else {
         console.log('❓ No flight keywords detected, sending help message');
-        await WhatsAppController.sendHelpMessage(userPhone, userName);
+        await this.sendHelpMessage(userPhone, userName);
       }
 
       console.log('✅ Message processing completed');
@@ -244,8 +244,8 @@ class WhatsAppController {
     }
   }
 
-  // Check if message is a flight search query
-  static isFlightQuery(message) {
+  // Check if message is a flight search query - Changed from static to instance method
+  isFlightQuery(message) {
     const flightKeywords = [
       'flight', 'flights', 'book', 'search', 'travel', 'ticket', 'tickets',
       'fly', 'airline', 'trip', 'journey', 'departure', 'arrival', 'plane',
@@ -262,13 +262,13 @@ class WhatsAppController {
     return hasKeyword;
   }
 
-  // Handle flight search requests
-  static async handleFlightSearch(messageText, userPhone, userName = 'User') {
+  // Handle flight search requests - Changed from static to instance method
+  async handleFlightSearch(messageText, userPhone, userName = 'User') {
     try {
       console.log('🛫 ===== HANDLING FLIGHT SEARCH =====');
       
       // Parse the message to extract flight search parameters
-      const searchParams = WhatsAppController.parseFlightQuery(messageText);
+      const searchParams = this.parseFlightQuery(messageText);
       console.log('🔍 Parsed search parameters:', searchParams);
       
       if (!searchParams.origin || !searchParams.destination || !searchParams.departureDate) {
@@ -332,7 +332,7 @@ Type "help" for examples and popular routes.`
 
       // Send top 5 flight results
       const topFlights = flights.slice(0, 5);
-      await WhatsAppController.sendFlightResults(userPhone, topFlights, searchParams);
+      await this.sendFlightResults(userPhone, topFlights, searchParams);
 
     } catch (error) {
       console.error('❌ Flight search error:', error);
@@ -343,8 +343,8 @@ Type "help" for examples and popular routes.`
     }
   }
 
-  // Parse flight query from natural language
-  static parseFlightQuery(message) {
+  // Parse flight query from natural language - Changed from static to instance method
+  parseFlightQuery(message) {
     const searchParams = {
       origin: null,
       destination: null,
@@ -362,14 +362,14 @@ Type "help" for examples and popular routes.`
     if (fromMatch) {
       let origin = fromMatch[1].trim();
       // Convert common city names to airport codes
-      origin = WhatsAppController.convertCityToCode(origin);
+      origin = this.convertCityToCode(origin);
       searchParams.origin = origin.toUpperCase();
     }
     
     if (toMatch) {
       let destination = toMatch[1].trim();
       // Convert common city names to airport codes  
-      destination = WhatsAppController.convertCityToCode(destination);
+      destination = this.convertCityToCode(destination);
       searchParams.destination = destination.toUpperCase();
     }
     
@@ -395,8 +395,8 @@ Type "help" for examples and popular routes.`
     return searchParams;
   }
 
-  // Convert city names to airport codes
-  static convertCityToCode(cityName) {
+  // Convert city names to airport codes - Changed from static to instance method
+  convertCityToCode(cityName) {
     const cityToCode = {
       'new york': 'NYC',
       'nyc': 'NYC', 
@@ -420,11 +420,11 @@ Type "help" for examples and popular routes.`
     return cityToCode[normalized] || cityName;
   }
 
-  // Send flight search results to user  
-  static async sendFlightResults(userPhone, flights, searchParams) {
+  // Send flight search results to user - Changed from static to instance method
+  async sendFlightResults(userPhone, flights, searchParams) {
     try {
       let resultMessage = `✈️ *Flight Search Results*\n\n`;
-      resultMessage += `📍 ${searchParams.origin} ✈️ ${searchParams.destination}\n`;
+      resultMessage += `🔍 ${searchParams.origin} ✈️ ${searchParams.destination}\n`;
       resultMessage += `📅 ${searchParams.departureDate}\n\n`;
 
       flights.forEach((flight, index) => {
@@ -435,7 +435,7 @@ Type "help" for examples and popular routes.`
         
         resultMessage += `*${index + 1}. Flight Option*\n`;
         resultMessage += `💰 Price: ${price} ${currency}\n`;
-        resultMessage += `⏱️ Duration: ${duration}\n`;  
+        resultMessage += `ⱏ Duration: ${duration}\n`;  
         resultMessage += `🏢 Airline: ${airline}\n`;
         resultMessage += `────────────────\n\n`;
       });
@@ -451,8 +451,8 @@ Type "help" for examples and popular routes.`
     }
   }
 
-  // Send help message for unrecognized queries
-  static async sendHelpMessage(userPhone, userName = 'User') {
+  // Send help message for unrecognized queries - Changed from static to instance method
+  async sendHelpMessage(userPhone, userName = 'User') {
     const helpMessage = `👋 *Welcome ${userName}!*
 
 I'm your Airline Booking Assistant! ✈️
@@ -480,4 +480,5 @@ Just type your flight search and I'll find the best options for you! ✈️
   }
 }
 
-module.exports = WhatsAppController;
+// Export an instance of the class instead of the class itself
+module.exports = new WhatsAppController();
