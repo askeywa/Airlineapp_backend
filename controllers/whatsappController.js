@@ -274,35 +274,46 @@ class WhatsAppController {
       if (!searchParams.origin || !searchParams.destination || !searchParams.departureDate) {
         console.log('⚠️ Missing required search parameters, sending help');
         
-        const helpText = `🛫 *Flight Search Help*
+        const helpText = `🛫 Flight Search Help
 
 Hi ${userName}! I'd be happy to help you find flights.
 
 Please provide your flight details in this format:
 "Search flights from [ORIGIN] to [DESTINATION] on [DATE]"
 
-*Examples:*
+Examples:
 • "Search flights from NYC to LAX on 2024-12-25"
 • "Flight from London to Paris on Dec 20"
 • "Book ticket Mumbai to Delhi tomorrow"
 
-*Popular city codes:*
+Popular city codes:
 NYC (New York), LAX (Los Angeles), LHR (London), 
 CDG (Paris), BOM (Mumbai), DEL (Delhi), DXB (Dubai)
 
-Just type your search and I'll find the best options! ✈️`;
+Just type your search and I'll find the best options!`;
 
-        await whatsappService.sendTextMessage(userPhone, helpText);
+        try {
+          await whatsappService.sendTextMessage(userPhone, helpText);
+          console.log('✅ Help message sent successfully');
+        } catch (sendError) {
+          console.error('❌ Failed to send help message:', sendError.message);
+          // Try sending a simpler message
+          await whatsappService.sendTextMessage(userPhone, "Hi! Please send your flight search in this format: FROM to DESTINATION on DATE. Example: NYC to DEL on 2025-09-20");
+        }
         return;
       }
 
       // Send searching message
-      await whatsappService.sendTextMessage(
-        userPhone, 
-        `🔍 Searching flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate}...
+      const searchingText = `Searching flights from ${searchParams.origin} to ${searchParams.destination} on ${searchParams.departureDate}...
 
-Please wait while I find the best options for you! ⏳`
-      );
+Please wait while I find the best options for you!`;
+
+      try {
+        await whatsappService.sendTextMessage(userPhone, searchingText);
+        console.log('✅ Searching message sent successfully');
+      } catch (sendError) {
+        console.error('⚠️ Failed to send searching message:', sendError.message);
+      }
 
       // Search for flights using Amadeus API
       console.log('🔍 Calling Amadeus API with params:', searchParams);
@@ -311,22 +322,25 @@ Please wait while I find the best options for you! ⏳`
       
       if (!flights || flights.length === 0) {
         console.log('❌ No flights found');
-        await whatsappService.sendTextMessage(
-          userPhone, 
-          `❌ No flights found for your search criteria:
+        const noFlightsText = `No flights found for your search criteria:
           
-🛫 Route: ${searchParams.origin} → ${searchParams.destination}
-📅 Date: ${searchParams.departureDate}
+Route: ${searchParams.origin} to ${searchParams.destination}
+Date: ${searchParams.departureDate}
 
 Please try:
 • Different dates
 • Alternative nearby airports  
 • Check spelling of city names
 
-Would you like to try another search? ✈️
+Would you like to try another search?
 
-Type "help" for examples and popular routes.`
-        );
+Type "help" for examples and popular routes.`;
+
+        try {
+          await whatsappService.sendTextMessage(userPhone, noFlightsText);
+        } catch (sendError) {
+          console.error('❌ Failed to send no flights message:', sendError.message);
+        }
         return;
       }
 
@@ -336,10 +350,14 @@ Type "help" for examples and popular routes.`
 
     } catch (error) {
       console.error('❌ Flight search error:', error);
-      await whatsappService.sendTextMessage(
-        userPhone, 
-        "Sorry, I couldn't search for flights right now. Please try again in a few minutes. 🔄"
-      );
+      try {
+        await whatsappService.sendTextMessage(
+          userPhone, 
+          "Sorry, I couldn't search for flights right now. Please try again in a few minutes."
+        );
+      } catch (sendError) {
+        console.error('❌ Failed to send error message:', sendError.message);
+      }
     }
   }
 
@@ -354,21 +372,24 @@ Type "help" for examples and popular routes.`
 
     console.log('🔍 Parsing message:', message);
 
-    // Enhanced parsing logic
-    const fromMatch = message.match(/from\s+([a-zA-Z]{3,}(?:\s+[a-zA-Z]+)*)/i);
-    const toMatch = message.match(/to\s+([a-zA-Z]{3,}(?:\s+[a-zA-Z]+)*)/i);
-    const dateMatch = message.match(/on\s+([0-9-]{8,}|tomorrow|today|next\s+\w+)/i);
+    // Enhanced parsing logic - Fixed regex patterns
+    // Look for origin city/airport (before "to")
+    const originMatch = message.match(/(?:from\s+)?([a-zA-Z]{3,}(?:\s+[a-zA-Z]+)?)\s+to\s+/i);
+    // Look for destination city/airport (after "to" but before "on")
+    const destinationMatch = message.match(/to\s+([a-zA-Z]{3,}(?:\s+[a-zA-Z]+)?)\s+(?:on|for)/i);
+    // Look for date
+    const dateMatch = message.match(/on\s+([\d-]{8,10}|tomorrow|today|next\s+\w+)/i);
+    // Look for passenger count
+    const passengerMatch = message.match(/for\s+(\d+)/i);
 
-    if (fromMatch) {
-      let origin = fromMatch[1].trim();
-      // Convert common city names to airport codes
+    if (originMatch) {
+      let origin = originMatch[1].trim();
       origin = this.convertCityToCode(origin);
       searchParams.origin = origin.toUpperCase();
     }
     
-    if (toMatch) {
-      let destination = toMatch[1].trim();
-      // Convert common city names to airport codes  
+    if (destinationMatch) {
+      let destination = destinationMatch[1].trim();
       destination = this.convertCityToCode(destination);
       searchParams.destination = destination.toUpperCase();
     }
@@ -382,13 +403,16 @@ Type "help" for examples and popular routes.`
       } else if (dateStr === 'today') {
         searchParams.departureDate = new Date().toISOString().split('T')[0];
       } else if (dateStr.startsWith('next')) {
-        // Handle "next week", "next month", etc.
         const nextWeek = new Date();
         nextWeek.setDate(nextWeek.getDate() + 7);
         searchParams.departureDate = nextWeek.toISOString().split('T')[0];
       } else {
         searchParams.departureDate = dateStr;
       }
+    }
+
+    if (passengerMatch) {
+      searchParams.adults = parseInt(passengerMatch[1]) || 1;
     }
 
     console.log('🔍 Parsed parameters:', searchParams);
@@ -423,9 +447,9 @@ Type "help" for examples and popular routes.`
   // Send flight search results to user - Changed from static to instance method
   async sendFlightResults(userPhone, flights, searchParams) {
     try {
-      let resultMessage = `✈️ *Flight Search Results*\n\n`;
-      resultMessage += `🔍 ${searchParams.origin} ✈️ ${searchParams.destination}\n`;
-      resultMessage += `📅 ${searchParams.departureDate}\n\n`;
+      let resultMessage = `Flight Search Results\n\n`;
+      resultMessage += `Route: ${searchParams.origin} to ${searchParams.destination}\n`;
+      resultMessage += `Date: ${searchParams.departureDate}\n\n`;
 
       flights.forEach((flight, index) => {
         const price = flight.price?.total || 'N/A';
@@ -433,15 +457,15 @@ Type "help" for examples and popular routes.`
         const duration = flight.itineraries?.[0]?.duration || 'N/A';
         const airline = flight.validatingAirlineCodes?.[0] || 'N/A';
         
-        resultMessage += `*${index + 1}. Flight Option*\n`;
-        resultMessage += `💰 Price: ${price} ${currency}\n`;
-        resultMessage += `ⱏ Duration: ${duration}\n`;  
-        resultMessage += `🏢 Airline: ${airline}\n`;
-        resultMessage += `────────────────\n\n`;
+        resultMessage += `${index + 1}. Flight Option\n`;
+        resultMessage += `Price: ${price} ${currency}\n`;
+        resultMessage += `Duration: ${duration}\n`;  
+        resultMessage += `Airline: ${airline}\n`;
+        resultMessage += `----------------\n\n`;
       });
 
-      resultMessage += `📞 To book any of these flights, please call us or reply with the flight number.\n\n`;
-      resultMessage += `💡 Need different dates or destinations? Just send another search!`;
+      resultMessage += `To book any of these flights, please call us or reply with the flight number.\n\n`;
+      resultMessage += `Need different dates or destinations? Just send another search!`;
 
       await whatsappService.sendTextMessage(userPhone, resultMessage);
       
@@ -453,30 +477,41 @@ Type "help" for examples and popular routes.`
 
   // Send help message for unrecognized queries - Changed from static to instance method
   async sendHelpMessage(userPhone, userName = 'User') {
-    const helpMessage = `👋 *Welcome ${userName}!*
+    const helpMessage = `Welcome ${userName}!
 
-I'm your Airline Booking Assistant! ✈️
+I'm your Airline Booking Assistant!
 
-*How to search for flights:*
+How to search for flights:
 "Search flights from [ORIGIN] to [DESTINATION] on [DATE]"
 
-*Examples:*
+Examples:
 • "Flight from NYC to LAX on 2024-12-25"
 • "Search Mumbai to Delhi tomorrow"  
 • "Book ticket London to Paris on Dec 20"
 
-*Popular destinations:*
-🇺🇸 NYC, LAX, MIA, CHI
-🇬🇧 LHR (London), MAN (Manchester)
-🇫🇷 CDG (Paris), NCE (Nice)
-🇮🇳 BOM (Mumbai), DEL (Delhi), BLR (Bangalore)
-🇦🇪 DXB (Dubai), AUH (Abu Dhabi)
+Popular destinations:
+US: NYC, LAX, MIA, CHI
+UK: LHR (London), MAN (Manchester)
+France: CDG (Paris), NCE (Nice)
+India: BOM (Mumbai), DEL (Delhi), BLR (Bangalore)
+UAE: DXB (Dubai), AUH (Abu Dhabi)
 
-Just type your flight search and I'll find the best options for you! ✈️
+Just type your flight search and I'll find the best options for you!
 
-*Need help?* Type "help" anytime!`;
+Need help? Type "help" anytime!`;
 
-    await whatsappService.sendTextMessage(userPhone, helpMessage);
+    try {
+      await whatsappService.sendTextMessage(userPhone, helpMessage);
+      console.log('✅ Help message sent successfully');
+    } catch (error) {
+      console.error('❌ Failed to send help message:', error.message);
+      // Try sending a simpler message
+      try {
+        await whatsappService.sendTextMessage(userPhone, "Hi! I can help you search for flights. Please send: FROM to DESTINATION on DATE");
+      } catch (simpleError) {
+        console.error('❌ Failed to send simple help message:', simpleError.message);
+      }
+    }
   }
 }
 
