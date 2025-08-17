@@ -191,10 +191,21 @@ class WhatsAppController {
       
       // Send error response to user
       try {
-        const errorMessage = messageFormatter.formatErrorMessage('api', 'Sorry, I encountered an error. Please try again.');
+        const errorMessage = messageFormatter.formatErrorMessage('api', 'Sorry, I encountered an error processing your message. Please try again in a moment.');
         await whatsappService.sendTextMessage(message.from, errorMessage);
       } catch (sendError) {
-        console.error('❌ Failed to send error response:', sendError);
+        console.error('❌ Failed to send error response:', {
+          originalError: error.message,
+          sendError: sendError.message,
+          userPhone: message.from
+        });
+        
+        // Last resort - try a simple text message
+        try {
+          await whatsappService.sendTextMessage(message.from, 'Sorry, I am experiencing technical difficulties. Please try again later.');
+        } catch (finalError) {
+          console.error('❌ Final fallback message also failed:', finalError.message);
+        }
       }
     }
   }
@@ -237,6 +248,13 @@ class WhatsAppController {
     try {
       console.log('📤 Sending response:', { type: response.type, hasMessage: !!response.message });
 
+      // Validate response object
+      if (!response || !response.message) {
+        console.warn('⚠️ Invalid response object, using fallback');
+        await whatsappService.sendTextMessage(userPhone, 'I\'m processing your request. Please wait a moment.');
+        return;
+      }
+
       switch (response.type) {
         case 'flight_results':
           // Send flight results with interactive buttons if needed
@@ -266,22 +284,39 @@ class WhatsAppController {
           // Send default text response
           if (response.message) {
             await whatsappService.sendTextMessage(userPhone, response.message);
+          } else {
+            await whatsappService.sendTextMessage(userPhone, 'I understand your message. How can I help you with flight bookings?');
           }
       }
       
       console.log('✅ Response sent successfully');
       
     } catch (error) {
-      console.error('❌ Error sending response to user:', error);
+      console.error('❌ Error sending response to user:', {
+        error: error.message,
+        userPhone,
+        responseType: response?.type,
+        hasMessage: !!response?.message
+      });
       
-      // Fallback: send simple error message
-      try {
-        await whatsappService.sendTextMessage(
-          userPhone, 
-          'Sorry, I encountered an error sending the response. Please try again.'
-        );
-      } catch (fallbackError) {
-        console.error('❌ Fallback response also failed:', fallbackError);
+      // Enhanced fallback with retry logic
+      const fallbackMessages = [
+        'Sorry, I encountered an error sending the response. Please try again.',
+        'I\'m having technical difficulties. Please resend your message.',
+        'Service temporarily unavailable. Please try again in a moment.'
+      ];
+      
+      for (let i = 0; i < fallbackMessages.length; i++) {
+        try {
+          await whatsappService.sendTextMessage(userPhone, fallbackMessages[i]);
+          console.log(`✅ Fallback message ${i + 1} sent successfully`);
+          break;
+        } catch (fallbackError) {
+          console.error(`❌ Fallback message ${i + 1} failed:`, fallbackError.message);
+          if (i === fallbackMessages.length - 1) {
+            console.error('❌ All fallback attempts failed');
+          }
+        }
       }
     }
   }

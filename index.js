@@ -7,6 +7,38 @@ const rateLimit = require('express-rate-limit'); // Rate limiting
 // Load environment variables first
 require('dotenv').config();
 
+// Validate critical environment variables
+function validateEnvironment() {
+  const requiredVars = [
+    'WHATSAPP_TOKEN',
+    'WHATSAPP_PHONE_NUMBER_ID',
+    'WHATSAPP_VERIFY_TOKEN'
+  ];
+  
+  const missing = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missing.length > 0) {
+    console.error('❌ Missing required environment variables:', missing);
+    console.error('Please set these variables in your Render.com environment settings:');
+    missing.forEach(varName => {
+      console.error(`   - ${varName}`);
+    });
+    
+    // Don't exit in development, but warn
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Exiting due to missing configuration...');
+      process.exit(1);
+    } else {
+      console.warn('⚠️ Continuing in development mode despite missing variables');
+    }
+  } else {
+    console.log('✅ All required environment variables are set');
+  }
+}
+
+// Validate environment before starting
+validateEnvironment();
+
 // Initialize app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -258,6 +290,29 @@ app.get('/test', (req, res) => {
     path: req.originalUrl,
     webhook_url: 'https://airlineapp-backend.onrender.com/webhook'
   });
+});
+
+// Test WhatsApp API connectivity
+app.get('/test-whatsapp', async (req, res) => {
+  try {
+    const whatsappService = require('./services/whatsappService');
+    const health = await whatsappService.healthCheck();
+    
+    res.json({
+      message: 'WhatsApp API connectivity test',
+      timestamp: new Date().toISOString(),
+      health: health,
+      test_status: health.status === 'healthy' ? 'PASS' : 'FAIL'
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      message: 'WhatsApp API connectivity test failed',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      test_status: 'FAIL'
+    });
+  }
 });
 
 // Favicon route to prevent 404s

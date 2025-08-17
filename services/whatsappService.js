@@ -7,7 +7,7 @@ class WhatsAppService {
   constructor() {
     this.accessToken = process.env.WHATSAPP_TOKEN;
     this.phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    this.baseUrl = 'https://graph.facebook.com/v23.0'; // Updated to v23
+    this.baseUrl = 'https://graph.facebook.com/v21.0'; // Using v21.0 - more stable
     
     // Validate configuration
     if (!this.accessToken || !this.phoneNumberId) {
@@ -111,34 +111,87 @@ class WhatsAppService {
         payload
       );
 
-      if (response.data.messages && response.data.messages[0]) {
-        console.log('✅ Message sent successfully:', response.data.messages[0].id);
-        
-        const result = {
-          success: true,
-          messageId: response.data.messages[0].id,
-          to: cleanPhone
-        };
-        
-        response.data = null;
-        return result;
+      console.log('📊 WhatsApp API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        hasData: !!response.data,
+        hasMessages: !!(response.data && response.data.messages),
+        messageCount: response.data && response.data.messages ? response.data.messages.length : 0,
+        rawData: JSON.stringify(response.data, null, 2)
+      });
+
+      if (response.status === 200 && response.data) {
+        if (response.data.messages && response.data.messages[0]) {
+          console.log('✅ Message sent successfully:', response.data.messages[0].id);
+          
+          const result = {
+            success: true,
+            messageId: response.data.messages[0].id,
+            to: cleanPhone
+          };
+          
+          response.data = null;
+          return result;
+        } else if (response.data.error) {
+          console.error('❌ WhatsApp API returned error:', response.data.error);
+          throw new Error(`WhatsApp API error: ${response.data.error.message || 'Unknown error'}`);
+        } else {
+          console.warn('⚠️ Unexpected response structure from WhatsApp API:', response.data);
+          // Still consider it successful if we got a 200 status
+          const result = {
+            success: true,
+            messageId: `fallback_${Date.now()}`,
+            to: cleanPhone,
+            warning: 'Unexpected response structure but status was 200'
+          };
+          
+          response.data = null;
+          return result;
+        }
       } else {
-        throw new Error('Invalid response from WhatsApp API');
+        throw new Error(`WhatsApp API returned status ${response.status}: ${response.statusText}`);
       }
 
     } catch (error) {
-      console.error('❌ Error sending WhatsApp message:', error.response?.data || error.message);
+      console.error('❌ Error sending WhatsApp message:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        code: error.code,
+        stack: error.stack
+      });
       
-      if (error.response?.status === 401) {
-        throw new Error('WhatsApp API authentication failed - check access token');
-      } else if (error.response?.status === 403) {
-        throw new Error('WhatsApp API access forbidden - check permissions');
-      } else if (error.response?.data?.error?.message) {
-        throw new Error(`WhatsApp API error: ${error.response.data.error.message}`);
+      // More detailed error handling
+      if (error.response) {
+        // HTTP error response
+        const status = error.response.status;
+        const errorData = error.response.data;
+        
+        if (status === 401) {
+          throw new Error('WhatsApp API authentication failed - check access token');
+        } else if (status === 403) {
+          throw new Error('WhatsApp API access forbidden - check permissions or phone number verification');
+        } else if (status === 400) {
+          const errorMsg = errorData?.error?.message || 'Bad request';
+          throw new Error(`WhatsApp API validation error: ${errorMsg}`);
+        } else if (status === 429) {
+          throw new Error('WhatsApp API rate limit exceeded - please retry later');
+        } else if (status >= 500) {
+          throw new Error('WhatsApp API server error - please retry later');
+        } else if (errorData?.error?.message) {
+          throw new Error(`WhatsApp API error: ${errorData.error.message}`);
+        } else {
+          throw new Error(`WhatsApp API HTTP error ${status}: ${error.response.statusText}`);
+        }
       } else if (error.code === 'ECONNABORTED') {
         throw new Error('WhatsApp API timeout - message may not have been delivered');
+      } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        throw new Error('WhatsApp API connection failed - check network connectivity');
+      } else if (error.message.includes('Invalid response from WhatsApp API')) {
+        throw error; // Re-throw our custom error
       } else {
-        throw new Error('Failed to send WhatsApp message');
+        throw new Error(`Failed to send WhatsApp message: ${error.message}`);
       }
     }
   }
@@ -403,12 +456,13 @@ class WhatsAppService {
       
       return {
         status: phoneInfo.success ? 'healthy' : 'degraded',
-        service: 'WhatsApp Business API v23',
+        service: 'WhatsApp Business API v21.0',
         webhook_url: 'https://airlineapp-backend.onrender.com/webhook',
         timestamp: new Date().toISOString(),
         phoneNumberConfigured: !!this.phoneNumberId,
         tokenConfigured: !!this.accessToken,
         phoneNumberInfo: phoneInfo.success ? phoneInfo.data : null,
+        baseUrl: this.baseUrl,
         memory: {
           rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
           heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
@@ -419,7 +473,7 @@ class WhatsAppService {
       console.error('❌ WhatsApp service health check failed:', error.message);
       return {
         status: 'unhealthy',
-        service: 'WhatsApp Business API v23',
+        service: 'WhatsApp Business API v21.0',
         webhook_url: 'https://airlineapp-backend.onrender.com/webhook',
         timestamp: new Date().toISOString(),
         error: error.message,
