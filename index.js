@@ -1,4 +1,4 @@
-// Main server file - index.js (Enhanced for Airline WhatsApp Bot with /Airlineapp support)
+// Main server file - index.js (Updated for Render.com deployment)
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet'); // Security middleware
@@ -46,17 +46,18 @@ if (NODE_ENV === 'production') {
   });
   
   app.use('/webhook', limiter);
-  //app.use('/Airlineapp/webhook', limiter); // Apply to both paths
 }
 
-// Trust proxy (important for A2 Hosting behind proxy)
+// Trust proxy (important for Render.com behind proxy)
 app.set('trust proxy', 1);
 
 // CORS configuration for your domain
 const corsOptions = {
   origin: [
-    'https://airlineapp-backend.onrender.com/',
-   // 'https://www.honeynwild.com',
+    'https://airlineapp-backend.onrender.com',
+    'https://graph.facebook.com',
+    'https://*.facebook.com',
+    'https://www.facebook.com',
     NODE_ENV === 'development' ? 'http://localhost:3000' : null
   ].filter(Boolean),
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -139,16 +140,10 @@ const performStartupChecks = async () => {
   return checks;
 };
 
-// Create router for /Airlineapp prefix
-const airlineRouter = express.Router();
-
-// Mount webhook routes on both direct path and Airlineapp prefix
+// Mount webhook routes
 if (webhookRoutes) {
-  // Direct webhook access
   app.use('/webhook', webhookRoutes);
-  // Webhook with Airlineapp prefix
-  airlineRouter.use('/webhook', webhookRoutes);
-  console.log('✅ Webhook routes mounted on both / and /Airlineapp');
+  console.log('✅ Webhook routes mounted on /webhook');
 } else {
   // Fallback webhook route
   const webhookFallback = (req, res) => {
@@ -159,15 +154,12 @@ if (webhookRoutes) {
     });
   };
   app.all('/webhook/*', webhookFallback);
-  airlineRouter.all('/webhook/*', webhookFallback);
 }
 
+// Mount flight routes
 if (flightRoutes) {
-  // Direct flight routes access
   app.use('/flights', flightRoutes);
-  // Flight routes with Airlineapp prefix
-  airlineRouter.use('/flights', flightRoutes);
-  console.log('✅ Flight routes mounted on both / and /Airlineapp');
+  console.log('✅ Flight routes mounted on /flights');
 } else {
   // Fallback flight routes
   const flightFallback = (req, res) => {
@@ -178,11 +170,10 @@ if (flightRoutes) {
     });
   };
   app.all('/flights/*', flightFallback);
-  airlineRouter.all('/flights/*', flightFallback);
 }
 
-// Health check endpoint for /Airlineapp prefix
-airlineRouter.get('/', async (req, res) => {
+// Root health check endpoint
+app.get('/', async (req, res) => {
   const healthData = {
     status: 'Server is running',
     message: 'Airline WhatsApp Bot API is active',
@@ -201,91 +192,18 @@ airlineRouter.get('/', async (req, res) => {
       flights: !!flightRoutes
     },
     availableEndpoints: [
-
-      '/webhook (GET|POST)',
-      /*
-      '/Airlineapp/',
-      '/Airlineapp/webhook (GET|POST)',
-      '/Airlineapp/flights/search',
-      '/Airlineapp/api/status',
-      '/Airlineapp/test'*/
+      'GET /',
+      'GET /health-full',
+      'GET /test',
+      'GET|POST /webhook',
+      'GET /flights/search'
     ]
   };
 
   res.json(healthData);
 });
-/*
-// 1. First, create a simple diagnostic endpoint - Add this to your index.js
 
-// Add this route BEFORE your other routes in index.js
-app.get('/Airlineapp/webhook-test', (req, res) => {
-  console.log('🔍 Webhook Test Endpoint Hit');
-  console.log('Method:', req.method);
-  console.log('URL:', req.url);
-  console.log('Query:', req.query);
-  console.log('Headers:', req.headers);
-  
-  res.json({
-    message: 'Webhook test endpoint working',
-    method: req.method,
-    url: req.url,
-    query: req.query,
-    timestamp: new Date().toISOString(),
-    userAgent: req.get('User-Agent')
-  });
-});
-
-// 2. Add a direct webhook handler in index.js (bypass routing issues)
-app.get('/Airlineapp/webhook-direct', (req, res) => {
-  try {
-    console.log('🔍 Direct webhook verification attempt');
-    console.log('Query params:', req.query);
-    
-    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
-
-    console.log('🔑 Verification details:', { 
-      mode, 
-      expectedToken: verifyToken,
-      receivedToken: token,
-      challenge: challenge ? 'present' : 'missing'
-    });
-
-    if (!verifyToken) {
-      console.error('❌ WHATSAPP_VERIFY_TOKEN not set');
-      return res.status(500).json({
-        error: 'WHATSAPP_VERIFY_TOKEN not configured',
-        env: {
-          NODE_ENV: process.env.NODE_ENV,
-          PORT: process.env.PORT,
-          VERIFY_TOKEN_SET: !!process.env.WHATSAPP_VERIFY_TOKEN
-        }
-      });
-    }
-
-    if (mode === 'subscribe' && token === verifyToken) {
-      console.log('✅ Direct webhook verified successfully!');
-      res.status(200).send(challenge);
-    } else {
-      console.log('❌ Direct webhook verification failed');
-      res.status(403).json({
-        error: 'Verification failed',
-        expected: { mode: 'subscribe', token: 'sehwag' },
-        received: { mode, token }
-      });
-    }
-  } catch (error) {
-    console.error('❌ Direct webhook error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
-  }
-});
-*/
-// 3. Add a comprehensive health check
+// Comprehensive health check endpoint
 app.get('/health-full', async (req, res) => {
   const health = {
     timestamp: new Date().toISOString(),
@@ -312,14 +230,9 @@ app.get('/health-full', async (req, res) => {
       flights_loaded: !!flightRoutes
     },
     testEndpoints: [
-      '/webhook',
-
-      /*
-      '/Airlineapp/health-full',
-      '/Airlineapp/webhook-test',
-      '/Airlineapp/webhook-direct',
-      '/Airlineapp/webhook',
-      '/Airlineapp/flights/search' */
+      'GET https://airlineapp-backend.onrender.com/webhook?hub.mode=subscribe&hub.verify_token=YOUR_TOKEN&hub.challenge=test',
+      'GET https://airlineapp-backend.onrender.com/health-full',
+      'GET https://airlineapp-backend.onrender.com/test'
     ]
   };
 
@@ -334,129 +247,19 @@ app.get('/health-full', async (req, res) => {
 
   res.json(health);
 });
-/*
-// 4. Add environment variable debug endpoint
-app.get('/Airlineapp/env-debug', (req, res) => {
-  res.json({
-    message: 'Environment Variables Debug',
-    variables: {
-      NODE_ENV: process.env.NODE_ENV || 'not set',
-      PORT: process.env.PORT || 'not set',
-      WHATSAPP_TOKEN: process.env.WHATSAPP_TOKEN ? 
-        `Set (${process.env.WHATSAPP_TOKEN.length} chars)` : 'NOT SET',
-      WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || 'NOT SET',
-      WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || 'NOT SET',
-      AMADEUS_CLIENT_ID: process.env.AMADEUS_CLIENT_ID || 'NOT SET',
-      AMADEUS_CLIENT_SECRET: process.env.AMADEUS_CLIENT_SECRET ? 
-        `Set (${process.env.AMADEUS_CLIENT_SECRET.length} chars)` : 'NOT SET'
-    },
-    timestamp: new Date().toISOString()
-  });
-});
-// Test endpoint for /Airlineapp prefix
-airlineRouter.get('/test', (req, res) => {
-  res.json({
-    message: 'Airline WhatsApp Bot is working correctly!',
-    timestamp: new Date().toISOString(),
-    userAgent: req.get('User-Agent'),
-    ip: req.ip || req.connection.remoteAddress,
-    path: req.originalUrl,
-    baseUrl: req.baseUrl
-  });
-});
 
-// API status endpoint for /Airlineapp prefix
-airlineRouter.get('/api/status', (req, res) => {
-  res.json({
-    api: 'Airline WhatsApp Bot',
-    status: 'operational',
-    services: {
-      whatsapp: 'operational',
-      amadeus: 'operational',
-      webhook: 'operational'
-    },
-    endpoints: {
-      webhook: '/Airlineapp/webhook',
-      flights: '/Airlineapp/flights',
-      health: '/Airlineapp/'
-    },
-    timestamp: new Date().toISOString()
-  });
-}); */
-
-// Mount the /Airlineapp router
-app.use('/Airlineapp', airlineRouter);
-
-// Root health check endpoint
-app.get('/', async (req, res) => {
-  const healthData = {
-    status: 'Server is running',
-    message: 'Airline WhatsApp Bot API is active',
-    version: '1.0.0',
-    environment: NODE_ENV,
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    memory: {
-      rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
-      heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB',
-      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
-      external: Math.round(process.memoryUsage().external / 1024 / 1024) + 'MB'
-    },
-    services: {
-      webhook: !!webhookRoutes,
-      flights: !!flightRoutes
-    },
-    availableEndpoints: [
-
-      '/webhook (GET|POST)',
-      /*
-      '/ (root)',
-      '/webhook (GET|POST)',
-      '/flights/search',
-      '/test',
-      '/Airlineapp/',
-      '/Airlineapp/webhook (GET|POST)',
-      '/Airlineapp/flights/search',
-      '/Airlineapp/api/status',
-      '/Airlineapp/test' */
-    ]
-  };
-
-  res.json(healthData);
-});
-
-// Test endpoint (root)
+// Test endpoint
 app.get('/test', (req, res) => {
   res.json({
     message: 'Server is working correctly!',
     timestamp: new Date().toISOString(),
     userAgent: req.get('User-Agent'),
     ip: req.ip || req.connection.remoteAddress,
-    path: req.originalUrl
+    path: req.originalUrl,
+    webhook_url: 'https://airlineapp-backend.onrender.com/webhook'
   });
 });
-/*
-// API status endpoint (root)
-app.get('/api/status', (req, res) => {
-  res.json({
-    api: 'Airline WhatsApp Bot',
-    status: 'operational',
-    services: {
-      whatsapp: 'operational',
-      amadeus: 'operational',
-      webhook: 'operational'
-    },
-    endpoints: {
-      webhook_direct: '/webhook',
-      webhook_prefixed: '/Airlineapp/webhook',
-      flights_direct: '/flights',
-      flights_prefixed: '/Airlineapp/flights',
-      health: '/'
-    },
-    timestamp: new Date().toISOString()
-  });
-});
-*/
+
 // Favicon route to prevent 404s
 app.get('/favicon.ico', (req, res) => {
   res.status(204).send();
@@ -501,12 +304,11 @@ app.use('*', (req, res) => {
     method: req.method,
     message: 'The requested endpoint does not exist',
     availableRoutes: [
-
-      
       'GET /',
-
+      'GET /health-full',
+      'GET /test',
       'GET|POST /webhook',
-
+      'GET /flights/search'
     ],
     timestamp: new Date().toISOString()
   });
@@ -522,13 +324,13 @@ const startServer = async () => {
     const server = app.listen(PORT, () => {
       console.log('🚀 ================================');
       console.log(`✅ Server running on port ${PORT}`);
-      console.log(`🌐 Server URL: https://honeynwild.com/Airlineapp`);
-      console.log(`📱 Webhook URL: https://honeynwild.com/Airlineapp/webhook`);
-      console.log(`🔍 Flight Search: https://honeynwild.com/Airlineapp/flights/search`);
-      console.log(`📊 Status Page: https://honeynwild.com/Airlineapp/api/status`);
-      console.log(`🏥 Health Check: https://honeynwild.com/Airlineapp/`);
+      console.log(`🌐 Server URL: https://airlineapp-backend.onrender.com`);
+      console.log(`📱 Webhook URL: https://airlineapp-backend.onrender.com/webhook`);
+      console.log(`🔍 Flight Search: https://airlineapp-backend.onrender.com/flights/search`);
+      console.log(`📊 Status Page: https://airlineapp-backend.onrender.com/health-full`);
+      console.log(`🏥 Health Check: https://airlineapp-backend.onrender.com`);
       console.log(`💾 Memory: ${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`);
-      console.log(`🌍 Environment: ${NODE_ENV}`);
+      console.log(`🌐 Environment: ${NODE_ENV}`);
       console.log(`⚡ Node.js: ${process.version}`);
       console.log('');
       console.log('📋 Service Status:');
@@ -538,14 +340,12 @@ const startServer = async () => {
       console.log(`   Flights: ${flightRoutes ? '✅ Loaded' : '❌ Failed'}`);
       console.log('');
       console.log('🔗 Available Endpoints:');
-      console.log('   Direct Access:');
-      console.log('     GET  /webhook (verification)');
-      console.log('     POST /webhook (messages)');
-      console.log('     GET  /flights/search');
-      console.log('   Prefixed Access:');
-      console.log('     GET  /Airlineapp/webhook (verification)');
-      console.log('     POST /Airlineapp/webhook (messages)');
-      console.log('     GET  /Airlineapp/flights/search');
+      console.log('     GET  / (health check)');
+      console.log('     GET  /health-full (detailed status)');
+      console.log('     GET  /test (connectivity test)');
+      console.log('     GET  /webhook (webhook verification)');
+      console.log('     POST /webhook (receive messages)');
+      console.log('     GET  /flights/search (flight search API)');
       console.log('🚀 ================================');
 
       // Log any warnings

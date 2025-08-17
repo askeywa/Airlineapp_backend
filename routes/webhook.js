@@ -34,7 +34,7 @@ router.use((req, res, next) => {
 router.get('/', (req, res) => {
   try {
     console.log('🔍 Webhook GET verification starting...');
-    console.log('🌐 Webhook URL: https://airlineapp-backend.onrender.com');
+    console.log('🌐 Webhook URL: https://airlineapp-backend.onrender.com/webhook');
     
     // Log environment status
     console.log('Environment check:', {
@@ -64,7 +64,7 @@ router.get('/', (req, res) => {
       return res.status(500).json({
         error: 'Server configuration error',
         message: 'WHATSAPP_VERIFY_TOKEN not configured',
-        webhook_url: 'https://airlineapp-backend.onrender.com'
+        webhook_url: 'https://airlineapp-backend.onrender.com/webhook'
       });
     }
 
@@ -81,7 +81,7 @@ router.get('/', (req, res) => {
     // Check if mode and token are correct
     if (mode === 'subscribe' && token === verifyToken) {
       console.log('✅ Webhook verification successful!');
-      console.log(`✅ Webhook URL verified: https://airlineapp-backend.onrender.com`);
+      console.log(`✅ Webhook URL verified: https://airlineapp-backend.onrender.com/webhook`);
       console.log(`✅ Returning challenge: ${challenge}`);
       
       return res.status(200).send(challenge);
@@ -103,7 +103,7 @@ router.get('/', (req, res) => {
     return res.status(500).json({
       error: 'Internal server error during verification',
       message: error.message,
-      webhook_url: 'https://airlineapp-backend.onrender.com'
+      webhook_url: 'https://airlineapp-backend.onrender.com/webhook'
     });
   }
 });
@@ -113,7 +113,7 @@ router.post('/', async (req, res) => {
   try {
     console.log('📨 ===== INCOMING WEBHOOK POST =====');
     console.log('📨 Timestamp:', new Date().toISOString());
-    console.log('📨 Webhook URL: https://airlineapp-backend.onrender.com');
+    console.log('📨 Webhook URL: https://airlineapp-backend.onrender.com/webhook');
     console.log('📨 Request body:', JSON.stringify(req.body, null, 2));
     console.log('📨 =====================================');
     
@@ -179,7 +179,7 @@ router.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    webhook_url: 'https://airlineapp-backend.onrender.com',
+    webhook_url: 'https://airlineapp-backend.onrender.com/webhook',
     controller_loaded: !!WhatsAppController,
     methods_available: WhatsAppController ? Object.getOwnPropertyNames(Object.getPrototypeOf(WhatsAppController)) : []
   });

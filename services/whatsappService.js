@@ -404,7 +404,7 @@ class WhatsAppService {
       return {
         status: phoneInfo.success ? 'healthy' : 'degraded',
         service: 'WhatsApp Business API v23',
-        webhook_url: 'https://airlineapp-backend.onrender.com',
+        webhook_url: 'https://airlineapp-backend.onrender.com/webhook',
         timestamp: new Date().toISOString(),
         phoneNumberConfigured: !!this.phoneNumberId,
         tokenConfigured: !!this.accessToken,
@@ -420,7 +420,7 @@ class WhatsAppService {
       return {
         status: 'unhealthy',
         service: 'WhatsApp Business API v23',
-        webhook_url: 'https://airlineapp-backend.onrender.com',
+        webhook_url: 'https://airlineapp-backend.onrender.com/webhook',
         timestamp: new Date().toISOString(),
         error: error.message,
         memory: {
