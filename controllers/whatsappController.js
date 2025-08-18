@@ -1131,13 +1131,17 @@ class WhatsAppController {
    * @param {number} maxLength - Maximum string length
    * @returns {any} Truncated object
    */
-  truncateForLogging(obj, maxLength = 500) {
+ truncateForLogging(obj, maxLength = 500) {
+  try {
     const str = JSON.stringify(obj, null, 2);
     if (str.length > maxLength) {
-      return JSON.parse(str.substring(0, maxLength) + '"}');
+      return str.substring(0, maxLength) + '... [TRUNCATED]';
     }
     return obj;
+  } catch (error) {
+    return `[Object - JSON.stringify failed: ${error.message}]`;
   }
+}
 
   /**
    * Log errors with context
