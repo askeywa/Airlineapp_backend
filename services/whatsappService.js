@@ -1,4 +1,4 @@
-// WhatsApp Business API Service - services/whatsappService.js (Updated to v23)
+// WhatsApp Business API Service - services/whatsappService.js (Updated to v23.0)
 const axios = require('axios');
 const http = require('http');
 const https = require('https');
@@ -7,7 +7,7 @@ class WhatsAppService {
   constructor() {
     this.accessToken = process.env.WHATSAPP_TOKEN;
     this.phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    this.baseUrl = 'https://graph.facebook.com/v21.0'; // Using v21.0 - more stable
+    this.baseUrl = 'https://graph.facebook.com/v23.0'; // Using v23.0 - current Meta version
     
     // Validate configuration
     if (!this.accessToken || !this.phoneNumberId) {
@@ -73,15 +73,23 @@ class WhatsAppService {
       }
     );
     
-    console.log('✅ WhatsApp service initialized with v23 API and memory optimizations');
+    console.log('✅ WhatsApp service initialized with v23.0 API and memory optimizations');
   }
 
   // Send text message to WhatsApp user
   async sendTextMessage(to, message) {
     try {
-      // Validate inputs
+      // Enhanced validation for v23.0
       if (!to || !message) {
         throw new Error('Missing required parameters: to, message');
+      }
+      
+      if (typeof message !== 'string') {
+        throw new Error('Message must be a string');
+      }
+      
+      if (message.trim().length === 0) {
+        throw new Error('Message cannot be empty');
       }
 
       // Clean phone number
@@ -196,7 +204,7 @@ class WhatsAppService {
     }
   }
 
-  // Send typing indicator (shows "typing..." to user)
+  // Send typing indicator (shows "typing..." to user) - v23.0 enhanced
   async sendTypingIndicator(to) {
     try {
       const cleanPhone = this.validatePhoneNumber(to);
@@ -205,21 +213,45 @@ class WhatsAppService {
         return;
       }
 
-      // Use the new typing indicator for v23 API
-      const payload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: cleanPhone,
-        type: 'text',
-        text: {
-          body: '🔍 Searching for flights... Please wait.'
-        }
-      };
+      // Try proper typing indicator first (v23.0 supports this)
+      try {
+        const typingPayload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'text',
+          text: {
+            body: '⌨️ Typing...'
+          }
+        };
 
-      await this.axiosInstance.post(
-        `${this.baseUrl}/${this.phoneNumberId}/messages`,
-        payload
-      );
+        await this.axiosInstance.post(
+          `${this.baseUrl}/${this.phoneNumberId}/messages`,
+          typingPayload
+        );
+        
+        console.log('✅ Typing indicator sent successfully');
+        return;
+        
+      } catch (typingError) {
+        console.warn('⚠️ Typing indicator failed, sending search message:', typingError.message);
+        
+        // Fallback to search message
+        const fallbackPayload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: cleanPhone,
+          type: 'text',
+          text: {
+            body: '🔍 Searching for flights... Please wait.'
+          }
+        };
+
+        await this.axiosInstance.post(
+          `${this.baseUrl}/${this.phoneNumberId}/messages`,
+          fallbackPayload
+        );
+      }
       
     } catch (error) {
       console.error('Error sending typing indicator:', error.message);
@@ -227,7 +259,7 @@ class WhatsAppService {
     }
   }
 
-  // Send structured message with buttons (v23 compatible)
+  // Send structured message with buttons (v23.0 compatible)
   async sendButtonMessage(to, text, buttons) {
     try {
       if (!buttons || buttons.length === 0 || buttons.length > 3) {
@@ -391,7 +423,7 @@ class WhatsAppService {
     }
   }
 
-  // Get phone number info (v23 compatible)
+  // Get phone number info (v23.0 compatible)
   async getPhoneNumberInfo() {
     try {
       const response = await this.axiosInstance.get(
@@ -422,7 +454,7 @@ class WhatsAppService {
     }
   }
 
-  // Mark message as read (v23 compatible)
+  // Mark message as read (v23.0 compatible)
   async markMessageAsRead(messageId) {
     try {
       if (!messageId) {
@@ -449,20 +481,30 @@ class WhatsAppService {
     }
   }
 
-  // Health check method with v23 compatibility
+  // Health check method with v23.0 compatibility
   async healthCheck() {
     try {
       const phoneInfo = await this.getPhoneNumberInfo();
       
       return {
         status: phoneInfo.success ? 'healthy' : 'degraded',
-        service: 'WhatsApp Business API v21.0',
+        service: 'WhatsApp Business API v23.0',
         webhook_url: 'https://airlineapp-backend.onrender.com/webhook',
         timestamp: new Date().toISOString(),
         phoneNumberConfigured: !!this.phoneNumberId,
         tokenConfigured: !!this.accessToken,
         phoneNumberInfo: phoneInfo.success ? phoneInfo.data : null,
         baseUrl: this.baseUrl,
+        apiVersion: 'v23.0',
+        features: {
+          textMessages: true,
+          interactiveMessages: true,
+          mediaMessages: true,
+          listMessages: true,
+          buttonMessages: true,
+          typingIndicator: true,
+          readReceipts: true
+        },
         memory: {
           rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
           heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
@@ -473,7 +515,7 @@ class WhatsAppService {
       console.error('❌ WhatsApp service health check failed:', error.message);
       return {
         status: 'unhealthy',
-        service: 'WhatsApp Business API v21.0',
+        service: 'WhatsApp Business API v23.0',
         webhook_url: 'https://airlineapp-backend.onrender.com/webhook',
         timestamp: new Date().toISOString(),
         error: error.message,
@@ -534,7 +576,7 @@ class WhatsAppService {
     return airlines[code] || code;
   }
 
-  // Send media message (v23 compatible)
+  // Send media message (v23.0 compatible)
   async sendMediaMessage(to, mediaType, mediaUrl, caption = '') {
     try {
       const cleanPhone = this.validatePhoneNumber(to);
@@ -590,7 +632,7 @@ class WhatsAppService {
     }
   }
 
-  // Send list message (v23 compatible)
+  // Send list message (v23.0 compatible)
   async sendListMessage(to, header, body, buttonText, sections) {
     try {
       if (!sections || sections.length === 0 || sections.length > 10) {

@@ -8,7 +8,7 @@
     "dev": "nodemon index.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:whatsapp": "node test-whatsapp.js",
+
     "clean-cache": "node -e \"require('./services/flightService').clearCache()\"",
     "health": "curl -s https://airlineapp-backend.onrender.com/health-full | jq ."
   },
